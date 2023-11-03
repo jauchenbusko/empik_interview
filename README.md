@@ -6,7 +6,7 @@ In this file, the following services have been defined:
 
 * mysql: [`mysql:latest`](https://hub.docker.com/_/mysql)
 
-Please review the tags of the used images and set them to the same as you're running in production.
+Please review the tags of the used images and set them to the same as you're running service.
 
 ### Reference Documentation
 For further reference, please consider the following sections:
