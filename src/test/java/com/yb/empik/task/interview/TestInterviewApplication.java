@@ -15,10 +15,10 @@ import static org.junit.Assert.assertEquals;
 public class TestInterviewApplication {
 
 	public static final String USER_INFO_TEST_URL = "http://localhost:8080/api/octocat";
-	private static RestTemplate restTemplate = null;
+	private static RestTemplate restTemplate;
 
-    public TestInterviewApplication(RestTemplate restTemplate) {
-        this.restTemplate = new RestTemplate();
+    public TestInterviewApplication() {
+        TestInterviewApplication.restTemplate = new RestTemplate();
     }
 
     @Bean
