@@ -10,40 +10,56 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Objects;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class UserDataService {
 
-    @Value("${github.api.url}")
-    private String GITHUB_USER_URL;
+    @Value("${github.api.userinfo.url}")
+    private String GITHUB_API_USER_INFO_URL;
 
     private final UserDataRepository userDataRepository;
     private final RestTemplate restTemplate;
 
-    public UserDataDTO getUserData(String login) {
-        ResponseEntity<GithubUserDataDTO> response =
-                restTemplate.exchange(GITHUB_USER_URL + login, HttpMethod.GET, null, GithubUserDataDTO.class);
-        GithubUserDataDTO userDataResponse = response.getBody();
+    public UserDataDTO getUserData(String userName) {
+            GithubUserDataDTO userDataResponse = getGithubUserData(userName);
 
-        if (Objects.isNull(userDataResponse)) {
-            log.warn("User data for {} is null", login);
-            return UserDataDTO.builder().build();
-        }
+            if (Objects.isNull(userDataResponse)) {
+                log.warn("User data for {} is null", userName);
+                return UserDataDTO.builder().build();
+            }
 
-        int interactionNumber = getInteractionNumber(login);
-        double calculations = calculate(userDataResponse);
-        log.info("Interaction with user {} number {}, calculations: {}", login, interactionNumber, calculations);
+            int interactionNumber = getInteractionNumber(userName);
+            double calculations = calculate(userDataResponse);
+            log.info("Interaction with user {} number {}, calculations: {}", userName, interactionNumber, calculations);
 
-        return mapToDataDto(userDataResponse, calculations);
+            return mapToDataDto(userDataResponse, calculations);
     }
 
-    private int getInteractionNumber(String login) {
-        UserDataJpa userRequest = userDataRepository.findById(login).orElse(new UserDataJpa(login, 0));
+    private GithubUserDataDTO getGithubUserData(String userName) {
+        try {
+            ResponseEntity<GithubUserDataDTO> response =
+                    restTemplate.exchange(GITHUB_API_USER_INFO_URL + userName, HttpMethod.GET, null, GithubUserDataDTO.class);
+            return response.getBody();
+        } catch (HttpClientErrorException.Forbidden exception) {
+            log.warn("API rate limit exceeded. Authenticated requests get a higher rate limit. Check out the documentation for more details.");
+            return new GithubUserDataDTO();
+        }
+    }
+
+    private int getInteractionNumber(String username) {
+        UserDataJpa userRequest = userDataRepository.findById(username)
+                .orElse(new UserDataJpa(username, 0));
         int interactionsWithUser = userRequest.getRequestCount() + 1;
         userRequest.setRequestCount(interactionsWithUser);
         userDataRepository.save(userRequest);
