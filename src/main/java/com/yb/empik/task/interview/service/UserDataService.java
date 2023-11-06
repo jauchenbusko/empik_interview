@@ -10,14 +10,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Objects;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
@@ -31,19 +28,19 @@ public class UserDataService {
     private final UserDataRepository userDataRepository;
     private final RestTemplate restTemplate;
 
-    public UserDataDTO getUserData(String userName) {
-            GithubUserDataDTO userDataResponse = getGithubUserData(userName);
+    public synchronized UserDataDTO getUserData(String userName) {
+        GithubUserDataDTO userDataResponse = getGithubUserData(userName);
 
-            if (Objects.isNull(userDataResponse)) {
-                log.warn("User data for {} is null", userName);
-                return UserDataDTO.builder().build();
-            }
+        if (Objects.isNull(userDataResponse)) {
+            log.warn("User data for {} is null", userName);
+            return UserDataDTO.builder().build();
+        }
 
-            int interactionNumber = getInteractionNumber(userName);
-            double calculations = calculate(userDataResponse);
-            log.info("Interaction with user {} number {}, calculations: {}", userName, interactionNumber, calculations);
+        int interactionNumber = getInteractionNumber(userName);
+        double calculations = calculate(userDataResponse);
+        log.info("Interaction with user {} number {}, calculations: {}", userName, interactionNumber, calculations);
 
-            return mapToDataDto(userDataResponse, calculations);
+        return mapToDataDto(userDataResponse, calculations);
     }
 
     private GithubUserDataDTO getGithubUserData(String userName) {
