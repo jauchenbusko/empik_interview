@@ -10,16 +10,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 public class UserDataService {
 
     @Value("${github.api.userinfo.url}")
@@ -27,6 +28,7 @@ public class UserDataService {
 
     private final UserDataRepository userDataRepository;
     private final RestTemplate restTemplate;
+    private final Lock lock = new ReentrantLock();
 
     public synchronized UserDataDTO getUserData(String userName) {
         GithubUserDataDTO userDataResponse = getGithubUserData(userName);
@@ -55,12 +57,17 @@ public class UserDataService {
     }
 
     private int getInteractionNumber(String username) {
-        UserDataJpa userRequest = userDataRepository.findById(username)
-                .orElse(new UserDataJpa(username, 0));
-        int interactionsWithUser = userRequest.getRequestCount() + 1;
-        userRequest.setRequestCount(interactionsWithUser);
-        userDataRepository.save(userRequest);
-        return interactionsWithUser;
+        try {
+            lock.lock();
+            UserDataJpa userRequest = userDataRepository.findById(username)
+                    .orElse(new UserDataJpa(username, 0));
+            int interactionsWithUser = userRequest.getRequestCount() + 1;
+            userRequest.setRequestCount(interactionsWithUser);
+            userDataRepository.save(userRequest);
+            return interactionsWithUser;
+        } finally {
+            lock.unlock();
+        }
     }
 
     private double calculate(GithubUserDataDTO userDataDTO) {
